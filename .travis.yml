@@ -1,0 +1,31 @@
+language: php
+
+php:
+  - 5.4
+  - 5.5
+  - 5.6
+  - 7
+  - hhvm
+  - nightly
+
+cache:
+  directories:
+    - vendor
+    - $HOME/.composer/cache
+
+matrix:
+  allow_failures:
+    - php: nightly
+  fast_finish: true
+
+install:
+  - composer selfupdate
+  - composer install
+
+script:
+  - mkdir -p build/logs
+  - phpunit
+
+after_script:
+  - if [[$(phpenv version-name) != "nightly" && $(phpenv version-name) != "hhvm"]]; then CODECLIMATE_REPO_TOKEN=4295b7489478a4fea3966d5391d34864af8168e91efeacc76402aeed0453be66 ./vendor/bin/test-reporter --stdout > codeclimate.json; fi
+  - "if [[$(phpenv version-name) != 'nightly' && $(phpenv version-name) != 'hhvm']]; then curl -X POST -d @codeclimate.json -H 'Content-Type: application/json' -H 'User-Agent: Code Climate (PHP Test Reporter v0.1.1)' https://codeclimate.com/test_reports"

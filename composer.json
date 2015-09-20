@@ -1,0 +1,21 @@
+{
+  "name": "mehr-als-nix/JsonPath",
+  "description": "description_text",
+  "minimum-stability": "stable",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Siad Ardroumli",
+      "email": "siad.ardroumli@gmail.com"
+    }
+  ],
+  "require-dev": {
+    "phpunit/phpunit": "^4.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "MehrAlsNix\\JsonPath\\": "src",
+      "MehrAlsNix\\JsonPath\\Tests\\": "tests"
+    }
+  }
+}
