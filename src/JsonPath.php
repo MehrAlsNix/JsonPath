@@ -112,7 +112,7 @@ class JsonPath
 
         $res = eval("\$name = $expr;");
 
-        if ($res === false) {
+        if ($res === false || $name === false) {
             print("(jsonPath) SyntaxError: $expr");
         } else {
             return $name;

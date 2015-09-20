@@ -88,8 +88,8 @@ class JsonStorage
      */
     public function get($expr, $unique = false)
     {
-        if ((is_array($exprs) || $exprs instanceof \Traversable)
-            && (($exprs = $this->normalizedFirst($expr)) !== false)
+        if ((($exprs = $this->normalizedFirst($expr)) !== false)
+            && (is_array($exprs) || $exprs instanceof \Traversable)
         ) {
             $values = array();
             foreach ($exprs as $expr) {
