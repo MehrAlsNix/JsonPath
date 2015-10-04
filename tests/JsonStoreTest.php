@@ -74,8 +74,8 @@ class JsonStoreTest extends TestCase
      */
     public function findPosition()
     {
-        $data = $this->jsonStore->get("$..book[:2]");
-        $this->assertFixtureSet('firstTwoBooks', $data);
+        $books = $this->jsonStore->get("$..book[:2]");
+        $this->assertFixtureSet('firstTwoBooks', $books);
     }
 
     /**
@@ -83,8 +83,10 @@ class JsonStoreTest extends TestCase
      */
     public function findPositionBySet()
     {
-        $data = $this->jsonStore->get("$..book[0,1]");
-        $this->assertFixtureSet('firstTwoBooks', $data);
+        $this->assertFixtureSet(
+            'firstTwoBooks',
+            $this->jsonStore->get("$..book[0,1]")
+        );
     }
 
     /**
@@ -92,16 +94,10 @@ class JsonStoreTest extends TestCase
      */
     public function findLessThan()
     {
-        $data = $this->jsonStore->get("$..book[?(@.price<8.98)]");
-        $expected = [
-            [
-                'category' => 'reference',
-                'author' => 'Nigel Rees',
-                'title' => 'Sayings of the Century',
-                'price' => 8.95
-            ]
-        ];
-        $this->assertEquals($expected, $data);
+        $this->assertFixtureSet(
+            'lessThan',
+            $this->jsonStore->get("$..book[?(@.price<8.98)]")
+        );
     }
 
     /**
@@ -109,8 +105,7 @@ class JsonStoreTest extends TestCase
      */
     public function getAllChildMembers()
     {
-        $data = $this->jsonStore->get("$.store.*");
-        $this->assertFixtureSet('storage', $data);
+        $this->assertFixtureSet('storage', $this->jsonStore->get("$.store.*"));
     }
 
     /**
@@ -118,7 +113,6 @@ class JsonStoreTest extends TestCase
      */
     public function getAllMembers()
     {
-        $data = $this->jsonStore->get("$..*");
-        $this->assertFixtureSet('book', $data[0]);
+        $this->assertFixtureSet('book', $this->jsonStore->get("$..*")[0]);
     }
 }
