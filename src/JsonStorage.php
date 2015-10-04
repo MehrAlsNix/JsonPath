@@ -13,6 +13,8 @@ class JsonStorage
 
     /**
      * @param string|array|\stdClass $data
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct($data)
     {
@@ -22,15 +24,17 @@ class JsonStorage
     /**
      * Sets JsonStore's manipulated data
      * @param string|array|\stdClass $data
+     *
+     * @throws \InvalidArgumentException
      */
     public function setData($data)
     {
         $this->data = $data;
         if (is_string($this->data)) {
             $this->data = json_decode($this->data, true);
-        } else if (is_object($data)) {
+        } elseif (is_object($data)) {
             $this->data = json_decode(json_encode($this->data), true);
-        } else if (!is_array($data)) {
+        } elseif (!is_array($data)) {
             throw new \InvalidArgumentException(sprintf('Invalid data type in JsonStore. Expected object, array or string, got %s', gettype($data)));
         }
     }
@@ -68,7 +72,7 @@ class JsonStorage
      * @param mixed $value Value to set
      * @return bool returns true if success
      */
-    function set($expr, $value)
+    public function set($expr, $value)
     {
         $get = $this->get($expr);
         if ($res =& $get) {
@@ -143,13 +147,13 @@ class JsonStorage
      * @param string $name Key name
      * @return bool returns true if success
      */
-    public function add($parentexpr, $value, $name = "")
+    public function add($parentexpr, $value, $name = '')
     {
         $get = $this->get($parentexpr);
         if ($parents =& $get) {
             foreach ($parents as &$parent) {
                 $parent = is_array($parent) ? $parent : array();
-                if ($name != "") {
+                if ($name !== '') {
                     $parent[$name] = $value;
                 } else {
                     $parent[] = $value;

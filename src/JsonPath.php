@@ -2,29 +2,62 @@
 
 namespace MehrAlsNix\JsonPath;
 
+/**
+ * Class JsonPath
+ * @package MehrAlsNix\JsonPath
+ */
 class JsonPath
 {
+    /**
+     * @var array
+     */
     private static $keywords = ['=', ')', '!', '<', '>'];
+    /**
+     * @var string
+     */
+    private static $recursiveDescent = '..';
+    /**
+     * @var string
+     */
+    private static $wildcard = '*';
+    /**
+     * @var
+     */
     private $obj;
+    /**
+     * @var string
+     */
     private $resultType = 'Value';
+    /**
+     * @var array
+     */
     private $result = [];
 
-    public function __construct($obj)
+    /**
+     * @param
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function __construct($array)
     {
-        if (is_object($obj)) {
+        if (is_object($array)) {
             throw new \InvalidArgumentException(
                 'You sent an object, not an array.'
             );
         }
 
-        $this->obj = $obj;
+        $this->obj = $array;
     }
 
+    /**
+     * @param string $expr
+     * @param array|null $args
+     * @return array|bool
+     */
     public function query($expr, $args = null)
     {
         $this->resultType = $args ? $args['resultType'] : 'VALUE';
         $x = $this->normalize($expr);
-
 
         if ($expr && $this->obj && ($this->resultType === 'VALUE' || $this->resultType === 'PATH')) {
             $this->trace(preg_replace("/^\\$;/", '', $x), $this->obj, "$");
@@ -36,7 +69,12 @@ class JsonPath
         }
     }
 
-    // normalize path expression
+    /**
+     * normalize path expression
+     *
+     * @param $expression
+     * @return mixed
+     */
     private function normalize($expression)
     {
         // Replaces filters by #0 #1...
@@ -49,17 +87,22 @@ class JsonPath
         // ; separator between each elements
         $expression = preg_replace(
             ["/'?\.'?|\['?/", "/;;;|;;/", "/;$|'?\]|'$/"],
-            [";", ";..;", ""],
+            [';', ';..;', ''],
             $expression
         );
 
         // Restore filters
-        $expression = preg_replace_callback('/#(\d+)/', [&$this, 'restoreFilters'], $expression);
+        $expression = preg_replace_callback('/#(\d+)/', function ($filter) { return $this->result[$filter[1]]; }, $expression);
         // result array was temporarily used as a buffer ..
         $this->result = [];
         return $expression;
     }
 
+    /**
+     * @param string $expr
+     * @param mixed $val
+     * @param string $path
+     */
     private function trace($expr, $val, $path)
     {
         if ($expr !== '') {
@@ -69,20 +112,38 @@ class JsonPath
 
             if (is_array($val) && array_key_exists($loc, $val)) {
                 $this->trace($x, $val[$loc], $path . ';' . $loc);
-            } elseif ($loc === '*') {
-                $this->walk($loc, $x, $val, $path, array(&$this, "_callback_03"));
-            } elseif ($loc === '..') {
+            } elseif ($loc === self::$wildcard) {
+                $this->walk(
+                    $loc,
+                    $x,
+                    $val,
+                    $path,
+                    function ($m, $l, $x, $v, $p) {
+                        $this->trace($m . ';' . $x, $v, $p);
+                    }
+                );
+            } elseif ($loc === self::$recursiveDescent) {
                 $this->trace($x, $val, $path);
-                $this->walk($loc, $x, $val, $path, array(&$this, "_callback_04"));
-            } elseif (preg_match("/^\(.*?\)$/", $loc)) { // [(expr)]
-                $this->trace($this->evalx($loc, $val, substr($path, strrpos($path, ';') + 1)) . ';' . $x, $val, $path);
-            } elseif (preg_match("/^\?\(.*?\)$/", $loc)) { // [?(expr)]
-                $this->walk($loc, $x, $val, $path, array(&$this, "_callback_05"));
-            } elseif (preg_match("/^(-?\d*):(-?\d*):?(-?\d*)$/", $loc)) {
-                // [start:end:step]  phyton slice syntax
+                $this->walk(
+                    $loc,
+                    $x,
+                    $val,
+                    $path,
+                    function ($m, $l, $x, $v, $p) {
+                        if (is_array($v[$m])) {
+                            $this->trace('..;' . $x, $v[$m], $p . ';' . $m);
+                        }
+                    }
+                );
+            } elseif ($this->isScriptExpression($loc)) {
+                $ex = $this->evalx($loc, $val, substr($path, strrpos($path, ';') + 1));
+                $this->trace($ex . ';' . $x, $val, $path);
+            } elseif ($this->isFilterExpression($loc)) {
+                $this->processFilterExpression($loc, $x, $val, $path);
+            } elseif ($this->isArraySliceOperator($loc)) {
                 $this->slice($loc, $x, $val, $path);
-            } elseif (preg_match("/,/", $loc)) { // [name1,name2,...]
-                for ($s = preg_split("/'?,'?/", $loc), $i = 0, $n = count($s); $i < $n; $i++)
+            } elseif (strpos($loc, ',')) { // [name1,name2,...]
+                for ($s = preg_split('/\'?,\'?/', $loc), $i = 0, $n = count($s); $i < $n; $i++)
                     $this->trace($s[$i] . ";" . $x, $val, $path);
             }
         } else {
@@ -90,6 +151,61 @@ class JsonPath
         }
     }
 
+    /**
+     * @param string $loc
+     * @return bool
+     */
+    private function isArraySliceOperator($loc)
+    {
+        return (bool) preg_match("/^(-?\d*):(-?\d*):?(-?\d*)$/", $loc);
+    }
+
+    /**
+     * @param string $loc
+     * @return bool
+     */
+    private function isScriptExpression($loc)
+    {
+        return (bool) preg_match("/^\(.*?\)$/", $loc);
+    }
+
+    /**
+     * @param $loc
+     * @return bool
+     */
+    private function isFilterExpression($loc)
+    {
+        return (bool) preg_match("/^\?\(.*?\)$/", $loc);
+    }
+
+    /**
+     * @param string $loc
+     * @param string $x
+     * @param mixed $val
+     * @param string $path
+     */
+    private function processFilterExpression($loc, $x, $val, $path)
+    {
+        $this->walk(
+            $loc,
+            $x,
+            $val,
+            $path,
+            function ($m, $l, $x, $v, $p) {
+                if ($this->evalx(preg_replace("/^\?\((.*?)\)$/", "$1", $l), $v[$m])) {
+                    $this->trace($m . ';' . $x, $v, $p);
+                }
+            }
+        );
+    }
+
+    /**
+     * @param $loc
+     * @param $expr
+     * @param $val
+     * @param $path
+     * @param $f
+     */
     private function walk($loc, $expr, $val, $path, $f)
     {
         foreach ($val as $m => $v) {
@@ -107,25 +223,31 @@ class JsonPath
     private function evalx($x, $v, $vname = null)
     {
         $name = "";
-        $expr = preg_replace(array("/\\$/", "/@/"), array("\$this->obj", "\$v"), $x);
+        $expr = preg_replace(array('/\$/', '/@/'), array('$this->obj', '$v'), $x);
         $expr = preg_replace("#\[([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\]#", "['$1']", $expr);
 
         $res = eval("\$name = $expr;");
 
-        if ($res === false || $name === false) {
+        if ($res === false) {
             print("(jsonPath) SyntaxError: $expr");
         } else {
             return $name;
         }
     }
 
+    /**
+     * @param $loc
+     * @param $expr
+     * @param $v
+     * @param $path
+     */
     private function slice($loc, $expr, $v, $path)
     {
         $s = explode(':', preg_replace("/^(-?\d*):(-?\d*):?(-?\d*)$/", "$1:$2:$3", $loc));
         $len = count($v);
-        $start = (int)$s[0] ? $s[0] : 0;
-        $end = (int)$s[1] ? $s[1] : $len;
-        $step = (int)$s[2] ? $s[2] : 1;
+        $start = (int) $s[0] ? $s[0] : 0;
+        $end = (int) $s[1] ? $s[1] : $len;
+        $step = (int) $s[2] ? $s[2] : 1;
         $start = ($start < 0) ? max(0, $start + $len) : min($len, $start);
         $end = ($end < 0) ? max(0, $end + $len) : min($len, $end);
         for ($i = $start; $i < $end; $i += $step) {
@@ -133,13 +255,18 @@ class JsonPath
         }
     }
 
+    /**
+     * @param $p
+     * @param $v
+     * @return bool
+     */
     private function store($p, $v)
     {
         if ($p) {
-            array_push($this->result, ($this->resultType === 'PATH' ? $this->asPath($p) : $v));
+            $this->result[] = $this->resultType === 'PATH' ? $this->asPath($p) : $v;
         }
 
-        return !!$p;
+        return (bool) $p;
     }
 
     /**
@@ -188,7 +315,7 @@ class JsonPath
 
                     $end = null;
                     if (false !== $pos = $this->strpos_array($substr, self::$keywords)) {
-                        list($substr, $end) = array(substr($substr, 0, $pos), substr($substr, $pos, strlen($substr)));
+                        list($substr, $end) = [substr($substr, 0, $pos), substr($substr, $pos, strlen($substr))];
                     }
 
                     $str .= '[' . $substr . ']';
@@ -202,7 +329,7 @@ class JsonPath
             $m++;
         }
 
-        return "[#" . (array_push($this->result, implode('\'', $elements)) - 1) . "]";
+        return sprintf('[#%s]', array_push($this->result, implode('\'', $elements)) - 1);
     }
 
     /**
@@ -215,57 +342,11 @@ class JsonPath
     {
         $closer = 10000;
         foreach ($needles as $needle) {
-            if (false !== $pos = strpos($haystack, $needle)) {
-                if ($pos < $closer) {
-                    $closer = $pos;
-                }
+            if (false !== $pos = strpos($haystack, $needle) && $pos < $closer) {
+                $closer = $pos;
             }
         }
 
         return 10000 === $closer ? false : $closer;
-    }
-
-    /**
-     * Get a filter back
-     * @param string $filter
-     * @return mixed
-     */
-    private function restoreFilters($filter)
-    {
-        return $this->result[$filter[1]];
-    }
-
-    private function _callback_03($m, $l, $x, $v, $p)
-    {
-        $this->trace($m . ';' . $x, $v, $p);
-    }
-
-    private function _callback_04($m, $l, $x, $v, $p)
-    {
-        if (is_array($v[$m])) {
-            $this->trace('..;' . $x, $v[$m], $p . ';' . $m);
-        }
-    }
-
-    private function _callback_05($m, $l, $x, $v, $p)
-    {
-        if ($this->evalx(preg_replace("/^\?\((.*?)\)$/", "$1", $l), $v[$m])) {
-            $this->trace($m . ';' . $x, $v, $p);
-        }
-    }
-
-    private function toObject($array)
-    {
-        $o = new \stdClass();
-
-        foreach ($array as $key => $value) {
-            if (is_array($value)) {
-                $value = $this->toObject($value);
-            }
-
-            $o->$key = $value;
-        }
-
-        return $o;
     }
 }
