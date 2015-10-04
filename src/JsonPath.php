@@ -60,7 +60,7 @@ class JsonPath
         $x = $this->normalize($expr);
 
         if ($expr && $this->obj && ($this->resultType === 'VALUE' || $this->resultType === 'PATH')) {
-            $this->trace(preg_replace("/^\\$;/", '', $x), $this->obj, "$");
+            $this->trace(preg_replace('/^\$;/', '', $x), $this->obj, '$');
             if (count($this->result)) {
                 return $this->result;
             }
@@ -136,8 +136,12 @@ class JsonPath
                     }
                 );
             } elseif ($this->isScriptExpression($loc)) {
-                $ex = $this->evalx($loc, $val, substr($path, strrpos($path, ';') + 1));
-                $this->trace($ex . ';' . $x, $val, $path);
+                if ($loc === '(@.length-1)') {
+                    $this->trace('-1:;' . $x, $val, $path);
+                } else {
+                    $ex = $this->evalx($loc, $val, substr($path, strrpos($path, ';') + 1));
+                    $this->trace($ex . ';' . $x, $val, $path);
+                }
             } elseif ($this->isFilterExpression($loc)) {
                 $this->processFilterExpression($loc, $x, $val, $path);
             } elseif ($this->isArraySliceOperator($loc)) {
@@ -200,11 +204,11 @@ class JsonPath
     }
 
     /**
-     * @param $loc
-     * @param $expr
-     * @param $val
-     * @param $path
-     * @param $f
+     * @param string $loc
+     * @param string $expr
+     * @param mixed $val
+     * @param string $path
+     * @param callable $f
      */
     private function walk($loc, $expr, $val, $path, $f)
     {

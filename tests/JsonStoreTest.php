@@ -2,38 +2,10 @@
 
 namespace MehrAlsNix\JsonPath\Tests;
 
-use MehrAlsNix\JsonPath\JsonStorage;
-use PHPUnit_Framework_TestCase as TestCase;
+use MehrAlsNix\JsonPath\Tests\BaseTest as TestCase;
 
 class JsonStoreTest extends TestCase
 {
-    /** @var string $json */
-    private $json;
-
-    /** @var JsonStorage $jsonStore */
-    private $jsonStore;
-
-    /**
-     * Sets up the fixture, for example, open a network connection.
-     * This method is called before a test is executed.
-     */
-    public function setUp()
-    {
-        $this->json = file_get_contents(__DIR__ . '/_files/test.json');
-
-        $this->jsonStore = new JsonStorage($this->json);
-    }
-
-    /**
-     * Tears down the fixture, for example, close a network connection.
-     * This method is called after a test is executed.
-     */
-    public function tearDown()
-    {
-        $this->jsonStore = null;
-        $this->json = null;
-    }
-
     /**
      * @test
      */
@@ -89,9 +61,12 @@ class JsonStoreTest extends TestCase
      */
     public function getLast()
     {
-        $data = $this->jsonStore->get("$..book[-1:].isbn");
+        $data1 = $this->jsonStore->get("$..book[-1:].isbn");
+        $data2 = $this->jsonStore->get("$..book[(@.length-1)].isbn");
+
         $expected = ['0-395-19395-8'];
-        $this->assertEquals($expected, $data);
+        $this->assertEquals($expected, $data1);
+        $this->assertEquals($expected, $data2);
     }
 
     /**
@@ -100,22 +75,7 @@ class JsonStoreTest extends TestCase
     public function findPosition()
     {
         $data = $this->jsonStore->get("$..book[:2]");
-        $expected = [
-            [
-                'category' => 'reference',
-                'author' => 'Nigel Rees',
-                'title' => 'Sayings of the Century',
-                'price' => 8.95
-            ],
-            [
-                'category' => 'fiction',
-                'author' => 'Evelyn Waugh',
-                'title' => 'Sword of Honour',
-                'price' => 12.99,
-                'code' => '01.02'
-            ]
-        ];
-        $this->assertEquals($expected, $data);
+        $this->assertFixtureSet('firstTwoBooks', $data);
     }
 
     /**
@@ -124,22 +84,7 @@ class JsonStoreTest extends TestCase
     public function findPositionBySet()
     {
         $data = $this->jsonStore->get("$..book[0,1]");
-        $expected = [
-            [
-                'category' => 'reference',
-                'author' => 'Nigel Rees',
-                'title' => 'Sayings of the Century',
-                'price' => 8.95
-            ],
-            [
-                'category' => 'fiction',
-                'author' => 'Evelyn Waugh',
-                'title' => 'Sword of Honour',
-                'price' => 12.99,
-                'code' => '01.02'
-            ]
-        ];
-        $this->assertEquals($expected, $data);
+        $this->assertFixtureSet('firstTwoBooks', $data);
     }
 
     /**
@@ -165,41 +110,15 @@ class JsonStoreTest extends TestCase
     public function getAllChildMembers()
     {
         $data = $this->jsonStore->get("$.store.*");
-        $expected = [
-            [
-                [
-                    'category' => 'reference',
-                    'author' => 'Nigel Rees',
-                    'title' => 'Sayings of the Century',
-                    'price' => 8.95
-                ],
-                [
-                    'category' => 'fiction',
-                    'author' => 'Evelyn Waugh',
-                    'title' => 'Sword of Honour',
-                    'price' => 12.99,
-                    'code' => '01.02'
-                ],
-                [
-                    'category' => 'fiction',
-                    'author' => 'Herman Melville',
-                    'title' => 'Moby Dick',
-                    'isbn' => '0-553-21311-3',
-                    'price' => 8.99
-                ],
-                [
-                    'category' => 'fiction',
-                    'author' => 'J. R. R. Tolkien',
-                    'title' => 'The Lord of the Rings',
-                    'isbn' => '0-395-19395-8',
-                    'price' => 22.99
-                ]
-            ],
-            [
-                'color' => 'red',
-                'price' => 19.95
-            ]
-        ];
-        $this->assertEquals($expected, $data);
+        $this->assertFixtureSet('storage', $data);
+    }
+
+    /**
+     * @test
+     */
+    public function getAllMembers()
+    {
+        $data = $this->jsonStore->get("$..*");
+        $this->assertFixtureSet('book', $data[0]);
     }
 }
