@@ -96,7 +96,7 @@ class JsonStoreTest extends TestCase
     {
         $this->assertFixtureSet(
             'lessThan',
-            $this->jsonStore->get("$..book[?(@.price<8.98)]")
+            $this->jsonStore->get("$..book[?(@.price<8.99)]")
         );
     }
 

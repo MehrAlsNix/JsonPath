@@ -227,10 +227,10 @@ class JsonPath
     private function evalx($x, $v, $vname = null)
     {
         $name = "";
-        $expr = preg_replace(array('/\$/', '/@/'), array('$this->obj', '$v'), $x);
-        $expr = preg_replace("#\[([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\]#", "['$1']", $expr);
+        $expr1 = preg_replace(array('/\$/', '/@.([a-zA-Z\']*)/'), array('$this->obj', '$v[\'$1\']'), $x);
+        $expr = preg_replace("#\(([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\)#", "['$1']", $expr1);
 
-        $res = eval("\$name = $expr;");
+        $res = eval("\$name = (string) $expr;");
 
         if ($res === false) {
             print("(jsonPath) SyntaxError: $expr");
@@ -255,7 +255,7 @@ class JsonPath
         $start = ($start < 0) ? max(0, $start + $len) : min($len, $start);
         $end = ($end < 0) ? max(0, $end + $len) : min($len, $end);
         for ($i = $start; $i < $end; $i += $step) {
-            $this->trace($i . ";" . $expr, $v, $path);
+            $this->trace($i . ';' . $expr, $v, $path);
         }
     }
 
