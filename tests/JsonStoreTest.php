@@ -11,6 +11,7 @@ class JsonStoreTest extends TestCase
      */
     public function setData()
     {
+        $this->assertEquals($this->jsonStore->toString(), json_encode(json_decode($this->json, true)), JSON_PRETTY_PRINT);
         $this->assertEquals($this->jsonStore->toArray(), json_decode($this->json, true));
 
         $new = ['a' => 'b'];
@@ -18,6 +19,19 @@ class JsonStoreTest extends TestCase
 
         $this->assertEquals($this->jsonStore->toArray(), $new);
         $this->assertNotEquals($this->jsonStore->toArray(), json_decode($this->json, true));
+    }
+
+    /**
+     * @test
+     */
+    public function getLast()
+    {
+        $data1 = $this->jsonStore->get("$..book[-1:].isbn");
+        $data2 = $this->jsonStore->get("$..book[(@.length-1)].isbn");
+
+        $expected = ['0-395-19395-8'];
+        $this->assertEquals($expected, $data1);
+        $this->assertEquals($expected, $data2);
     }
 
     /**
@@ -54,19 +68,6 @@ class JsonStoreTest extends TestCase
         $data = $this->jsonStore->get("$..book[(@.code='01.02')].category");
         $expected = ['fiction'];
         $this->assertEquals($expected, $data);
-    }
-
-    /**
-     * @test
-     */
-    public function getLast()
-    {
-        $data1 = $this->jsonStore->get("$..book[-1:].isbn");
-        $data2 = $this->jsonStore->get("$..book[(@.length-1)].isbn");
-
-        $expected = ['0-395-19395-8'];
-        $this->assertEquals($expected, $data1);
-        $this->assertEquals($expected, $data2);
     }
 
     /**

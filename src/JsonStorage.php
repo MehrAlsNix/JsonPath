@@ -4,7 +4,8 @@ namespace MehrAlsNix\JsonPath;
 
 class JsonStorage
 {
-    private static $emptyArray = array();
+    /** @var array $emptyArray */
+    private static $emptyArray = [];
 
     /**
      * @var array
@@ -174,11 +175,11 @@ class JsonStorage
         if ((($exprs = $this->normalizedFirst($expr)) !== false) &&
             (is_array($exprs) || $exprs instanceof \Traversable)
         ) {
-            foreach ($exprs as &$expr) {
+            foreach ($exprs as $expr) {
                 $o =& $this->data;
                 $keys = preg_split(
                     "/([\"'])?\]\[([\"'])?/",
-                    preg_replace(array("/^\\$\[[\"']?/", "/[\"']?\]$/"), "", $expr)
+                    preg_replace(array("/^\\$\[[\"']?/", "/[\"']?\]$/"), '', $expr)
                 );
                 for ($i = 0; $i < count($keys) - 1; $i++) {
                     $o =& $o[$keys[$i]];

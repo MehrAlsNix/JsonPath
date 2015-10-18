@@ -1,12 +1,14 @@
 <?php
 
 namespace MehrAlsNix\JsonPath;
+use MehrAlsNix\JsonPath\Filter\Element;
+use Traversable;
 
 /**
  * Class JsonPath
  * @package MehrAlsNix\JsonPath
  */
-class JsonPath
+class JsonPath  implements \ArrayAccess, \JsonSerializable
 {
     /**
      * @var array
@@ -20,10 +22,12 @@ class JsonPath
      * @var string
      */
     private static $wildcard = '*';
+
     /**
-     * @var
+     * @var \RecursiveArrayIterator
      */
-    private $obj;
+    private $dataStore;
+
     /**
      * @var string
      */
@@ -33,69 +37,32 @@ class JsonPath
      */
     private $result = [];
 
-    /**
-     * @param
-     *
-     * @throws \InvalidArgumentException
-     */
-    public function __construct($array)
-    {
-        if (is_object($array)) {
-            throw new \InvalidArgumentException(
-                'You sent an object, not an array.'
-            );
-        }
+    private $lexer;
 
-        $this->obj = $array;
+    /**
+     * @param array $json
+     */
+    public function __construct(array $json)
+    {
+        $this->dataStore = new \RecursiveArrayIterator($json);
+        $this->lexer     = new JsonPathLexer();
     }
 
     /**
      * @param string $expr
      * @param array|null $args
-     * @return array|bool
+     * @return array
      */
     public function query($expr, $args = null)
     {
         $this->resultType = $args ? $args['resultType'] : 'VALUE';
-        $x = $this->normalize($expr);
 
-        if ($expr && $this->obj && ($this->resultType === 'VALUE' || $this->resultType === 'PATH')) {
-            $this->trace(preg_replace('/^\$;/', '', $x), $this->obj, '$');
-            if (count($this->result)) {
-                return $this->result;
-            }
-
-            return false;
+        if ($expr && $this->dataStore && ($this->resultType === 'VALUE' || $this->resultType === 'PATH')) {
+            $this->lexer->setInput($expr);
+            $this->parse();
         }
-    }
 
-    /**
-     * normalize path expression
-     *
-     * @param $expression
-     * @return mixed
-     */
-    private function normalize($expression)
-    {
-        // Replaces filters by #0 #1...
-        $expression = preg_replace_callback(
-            ["/[\['](\??\(.*?\))[\]']/", "/\['(.*?)'\]/"],
-            [&$this, 'tempFilters'],
-            $expression
-        );
-
-        // ; separator between each elements
-        $expression = preg_replace(
-            ["/'?\.'?|\['?/", "/;;;|;;/", "/;$|'?\]|'$/"],
-            [';', ';..;', ''],
-            $expression
-        );
-
-        // Restore filters
-        $expression = preg_replace_callback('/#(\d+)/', function ($filter) { return $this->result[$filter[1]]; }, $expression);
-        // result array was temporarily used as a buffer ..
-        $this->result = [];
-        return $expression;
+        return $this->result;
     }
 
     /**
@@ -103,14 +70,23 @@ class JsonPath
      * @param mixed $val
      * @param string $path
      */
-    private function trace($expr, $val, $path)
+    private function parse()
     {
+        while ($this->lexer->moveNext()) {
+            $lookahead = $this->lexer->lookahead;
+            if ($this->lexer->isNextToken(JsonPathLexer::T_RECURSIVE_DESCENT)) {
+                $element = $this->lexer->glimpse();
+                var_dump(iterator_to_array(new Element($this->dataStore, 'book')));
+            }
+        };
+        //var_dump($expr, $this->lexer->peek(), $this->lexer);
+        die();
         if ($expr !== '') {
             $x = explode(';', $expr);
             $loc = array_shift($x);
             $x = implode(';', $x);
 
-            if (is_array($val) && array_key_exists($loc, $val)) {
+            if ($val instanceof \ArrayObject && array_key_exists($loc, $val)) {
                 $this->trace($x, $val[$loc], $path . ';' . $loc);
             } elseif ($loc === self::$wildcard) {
                 $this->walk(
@@ -352,5 +328,81 @@ class JsonPath
         }
 
         return 10000 === $closer ? false : $closer;
+    }
+
+    /**
+     * (PHP 5 &gt;= 5.4.0)<br/>
+     * Specify data which should be serialized to JSON
+     * @link http://php.net/manual/en/jsonserializable.jsonserialize.php
+     * @return mixed data which can be serialized by <b>json_encode</b>,
+     * which is a value of any type other than a resource.
+     */
+    public function jsonSerialize()
+    {
+        return $this->dataStore->getArrayCopy();
+    }
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Whether a offset exists
+     * @link http://php.net/manual/en/arrayaccess.offsetexists.php
+     * @param mixed $offset <p>
+     * An offset to check for.
+     * </p>
+     * @return boolean true on success or false on failure.
+     * </p>
+     * <p>
+     * The return value will be casted to boolean if non-boolean was returned.
+     */
+    public function offsetExists($offset)
+    {
+        return array_key_exists($offset, $this->dataStore);
+    }
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Offset to retrieve
+     * @link http://php.net/manual/en/arrayaccess.offsetget.php
+     * @param mixed $offset <p>
+     * The offset to retrieve.
+     * </p>
+     * @return mixed Can return all value types.
+     */
+    public function offsetGet($offset)
+    {
+        return $this->dataStore[$key];
+    }
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Offset to set
+     * @link http://php.net/manual/en/arrayaccess.offsetset.php
+     * @param mixed $offset <p>
+     * The offset to assign the value to.
+     * </p>
+     * @param mixed $value <p>
+     * The value to set.
+     * </p>
+     * @return void
+     */
+    public function offsetSet($offset, $value)
+    {
+        $this->dataStore[$offset] = $value;
+    }
+
+    /**
+     * (PHP 5 &gt;= 5.0.0)<br/>
+     * Offset to unset
+     * @link http://php.net/manual/en/arrayaccess.offsetunset.php
+     * @param mixed $offset <p>
+     * The offset to unset.
+     * </p>
+     * @return void
+     */
+    public function offsetUnset($offset)
+    {
+        if ($this->dataStore->offsetExists($offset)) {
+            unset($this->dataStore[$offset]);
+        }
     }
 }
